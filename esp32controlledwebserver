@@ -1,4 +1,4 @@
-#control led from the web page. this is the basic page. iska use hum waha karte hai jaha pass hum webpage se input le apne esp32 me aur led ko control lrenge
+#EX-1 control led from the web page. this is the basic page. iska use hum waha karte hai jaha pass hum webpage se input le apne esp32 me aur led ko control lrenge
 try:
   import usocket as socket
 except:
