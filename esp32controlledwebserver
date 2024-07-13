@@ -64,3 +64,88 @@ while True:
   conn.sendall(response)
   conn.close()
 
+#EX-2 slider based led control and it works fine
+try:
+    import usocket as socket
+except:
+    import socket
+
+from machine import Pin
+import network
+
+ssid = "Airtel_tejv_3002"
+password = "air73137"
+
+station = network.WLAN(network.STA_IF)
+station.active(True)
+station.connect(ssid, password)
+while not station.isconnected():
+    pass
+print("Connection successful")
+print(station.ifconfig())
+
+led = Pin(2, Pin.OUT)  # Use Pin 2 for the built-in LED on ESP32
+
+def web_page():
+    if led.value() == 1:
+        checked_attr = "checked"
+    else:
+        checked_attr = ""
+
+    html = """<!DOCTYPE html>
+    <html>
+    <head>
+        <title>ESP32 Relay Control</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            body { font-family: Arial; text-align: center; margin: 0px auto; padding-top: 50px; }
+            .slider { -webkit-appearance: none; appearance: none; width: 300px; height: 20px; background: #ccc; outline: none; opacity: 0.7; transition: opacity .15s ease-in-out; }
+            .slider:hover { opacity: 1; }
+            .slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; background: #4CAF50; cursor: pointer; }
+            .slider::-moz-range-thumb { width: 20px; height: 20px; background: #4CAF50; cursor: pointer; }
+        </style>
+    </head>
+    <body>
+        <h1>ESP32 Relay Control</h1>
+        <input type="range" min="0" max="1" value="%s" class="slider" id="myRange" onchange="toggleCheckbox(this)">
+        <script>
+            function toggleCheckbox(element) {
+                var xhr = new XMLHttpRequest();
+                if (element.value == 1) {
+                    xhr.open("GET", "/?led=on", true);
+                } else {
+                    xhr.open("GET", "/?led=off", true);
+                }
+                xhr.send();
+            }
+        </script>
+    </body>
+    </html>""" % checked_attr
+    return html
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.bind(('', 80))
+s.listen(5)
+
+while True:
+    conn, addr = s.accept()
+    print('Got a connection from %s' % str(addr))
+    request = conn.recv(1024)
+    request = str(request)
+    print('Content = %s' % request)
+    led_on = request.find('/?led=on')
+    led_off = request.find('/?led=off')
+    if led_on == 6:
+        print('LED ON')
+        led.value(1)
+    if led_off == 6:
+        print('LED OFF')
+        led.value(0)
+    
+    response = web_page()
+    conn.send(b'HTTP/1.1 200 OK\n')
+    conn.send(b'Content-Type: text/html\n')
+    conn.send(b'Connection: close\n\n')
+    conn.sendall(response.encode('utf-8'))  # Encode HTML response to bytes before sending
+    conn.close()
+
