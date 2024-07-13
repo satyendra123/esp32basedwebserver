@@ -156,3 +156,89 @@ while True:
     conn.sendall(response.encode('utf-8'))  # Encode HTML response to bytes before sending
     conn.close()
 
+#STEp-3 react js code to make the similar functionality
+import React, { useState, useEffect } from 'react';
+import './ToggleSwitch.css'; // Import your CSS file for styling
+
+const ToggleSwitch = () => {
+    const [isChecked, setIsChecked] = useState(false);
+
+    useEffect(() => {
+        // Fetch initial state from ESP32 server
+        fetch('/state')  // Replace with your ESP32 server endpoint
+            .then(response => response.json())
+            .then(data => setIsChecked(data.state === 'on'));  // Assuming your server responds with JSON containing state information
+    }, []);
+
+    const handleToggle = () => {
+        const newState = isChecked ? 'off' : 'on';
+        
+        // Send state change request to ESP32 server
+        fetch(`/?led=${newState}`)  // Replace with your ESP32 server endpoint
+            .then(() => setIsChecked(!isChecked))
+            .catch(error => console.error('Error toggling switch:', error));
+    };
+
+    return (
+        <div className="toggle-switch-container">
+            <h2>ESP32 Relay Control</h2>
+            <label className="switch">
+                <input type="checkbox" checked={isChecked} onChange={handleToggle} />
+                <span className="slider"></span>
+            </label>
+            <p>Toggle Switch</p>
+        </div>
+    );
+};
+
+export default ToggleSwitch;
+
+#step-2 this is my css code
+.toggle-switch-container {
+    font-family: Arial;
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto;
+    padding-bottom: 25px;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 120px;
+    height: 68px;
+}
+
+.switch input {
+    display: none;
+}
+
+.slider {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 52px;
+    width: 52px;
+    left: 8px;
+    bottom: 8px;
+    background-color: #fff;
+    transition: .4s;
+    border-radius: 68px;
+}
+
+.switch input:checked + .slider {
+    background-color: #2196F3;
+}
+
+.switch input:checked + .slider:before {
+    transform: translateX(52px);
+}
