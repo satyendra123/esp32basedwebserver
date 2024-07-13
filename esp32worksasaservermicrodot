@@ -1,0 +1,65 @@
+# isme humne apne esp32 ko hi server banaya hai means agar koi react js me led on and off ka code likhe to hum us button par click karke led ko control kar sakte hai. 192.168.1.35/led/on likhne par buitlin led turn on hoti hai aur 192.168.1.35/led/off likhne par buitin led turned off ho jati hai
+# How to test it- maine simply 192.168.1.35/led/on likha apne web browser me to ye led on kar diya aur likha hua aa gya led turned on aur agar mai 192.168.1.35/led/off likha to led off ho gya
+
+from microdot import Microdot
+from machine import Pin
+import network
+
+# Initialize the Microdot application
+app = Microdot()
+
+# Initialize LED pin (adjust GPIO number as per your setup)
+led_pin = Pin(2, Pin.OUT)  # GPIO 5 for example
+
+# Define HTML content for the webpage
+html = """<!DOCTYPE html>
+<html>
+<head><title>ESP32 LED Control</title></head>
+<body>
+<h1>Control ESP32 LED</h1>
+<button onclick="sendRequest('/led/on')">Turn On</button>
+<button onclick="sendRequest('/led/off')">Turn Off</button>
+
+<script>
+function sendRequest(endpoint) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', endpoint, true);
+    xhr.send();
+}
+</script>
+</body>
+</html>
+"""
+
+# Function to connect to WiFi
+def connect_wifi():
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    if not wlan.isconnected():
+        print('Connecting to WiFi...')
+        wlan.connect('your_wifi_ssid', 'your_wifi_password')
+        while not wlan.isconnected():
+            pass
+    print('Connected to WiFi:', wlan.ifconfig())
+
+# Define route handlers for LED control
+@app.route('/')
+def index(request):
+    return html
+
+@app.route('/led/on')
+def turn_on_led(request):
+    led_pin.on()
+    return 'LED turned ON'
+
+@app.route('/led/off')
+def turn_off_led(request):
+    led_pin.off()
+    return 'LED turned OFF'
+
+# Connect to WiFi
+connect_wifi()
+
+# Start the application
+app.run(host='0.0.0.0', port=80)
+
