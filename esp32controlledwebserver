@@ -99,10 +99,10 @@ def web_page():
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
             body { font-family: Arial; text-align: center; margin: 0px auto; padding-top: 50px; }
-            .slider { -webkit-appearance: none; appearance: none; width: 300px; height: 20px; background: #ccc; outline: none; opacity: 0.7; transition: opacity .15s ease-in-out; }
+            .slider { -webkit-appearance: none; appearance: none; width: 50px; height: 30px; background: #ccc; outline: none; opacity: 0.7; transition: opacity .15s ease-in-out;border-radius: 15px; }
             .slider:hover { opacity: 1; }
-            .slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; background: #4CAF50; cursor: pointer; }
-            .slider::-moz-range-thumb { width: 20px; height: 20px; background: #4CAF50; cursor: pointer; }
+            .slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 30px; background: #4CAF50; cursor: pointer; border-radius: 10px;}
+            .slider::-moz-range-thumb { width: 20px; height: 20px; background: #4CAF50; cursor: pointer; border-radius: 10px;}
         </style>
     </head>
     <body>
