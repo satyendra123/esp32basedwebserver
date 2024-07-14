@@ -160,4 +160,164 @@ thread.start_new_thread(setup_http_server, (tcp_ip,))
 while True:
     pass  # Keep the main thread running
 
+#EX-2 in this i have used tcp ip server with lan or tcp ip server with wifi and web server with the esp32. it is using lan8720 module. it will choose whether the lan is connected or not if lan is connected then it goes with lan tcp ip server and if the lan is not connected then it goes with wifi tcp ip server. and it also allows to go with the webserver where it shows me the current ip address and i can also change the ip address from the web server
+import socket
+import network
+import _thread as thread
+import machine
+import time
 
+# WiFi configuration
+WIFI_SSID = "Airtel_tejv_3002"
+WIFI_PASSWORD = "air73137"
+
+# Default static IP configuration
+DEFAULT_STATIC_IP = "192.168.1.151"
+SUBNET_MASK = "255.255.255.0"
+GATEWAY = "192.168.1.1"
+DNS = "8.8.8.8"
+
+# TCP/IP server configuration
+TCP_PORT = 6000
+
+# File for storing IP address
+IP_FILE = "config.txt"
+
+# HTML template
+html = """<!DOCTYPE html>
+<html>
+<head><title>ESP32 IP Configuration</title></head>
+<body>
+  <h1>Current IP Address: {current_ip}</h1>
+  <form method="post" action="/update_ip">
+    New IP Address: <input type="text" name="new_ip" required><br><br>
+    <input type="submit" value="Change IP">
+  </form>
+</body>
+</html>
+"""
+
+# Read current IP address from file
+def read_ip():
+    try:
+        with open(IP_FILE, "r") as f:
+            return f.read().strip()
+    except OSError:
+        return DEFAULT_STATIC_IP  # Default IP address if file not found
+
+# Write new IP address to file
+def write_ip(new_ip):
+    with open(IP_FILE, "w") as f:
+        f.write(new_ip)
+
+# Connect to WiFi with static IP
+def connect_wifi():
+    sta_if = network.WLAN(network.STA_IF)
+    if not sta_if.isconnected():
+        print("Connecting to WiFi...")
+        sta_if.active(True)
+        current_ip = read_ip()
+        sta_if.ifconfig((current_ip, SUBNET_MASK, GATEWAY, DNS))
+        sta_if.connect(WIFI_SSID, WIFI_PASSWORD)
+        while not sta_if.isconnected():
+            pass
+    print("WiFi connected:", sta_if.ifconfig())
+    return sta_if.ifconfig()[0]  # Return the IP address
+
+# Restart ESP32
+def restart_esp32():
+    print("Restarting ESP32...")
+    time.sleep(1)
+    machine.reset()
+
+# Setup TCP/IP server
+def setup_server(tcp_ip):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind((tcp_ip, TCP_PORT))
+    sock.listen(5)
+    print(f"TCP/IP Server listening on {tcp_ip}:{TCP_PORT}")
+
+    while True:
+        client_socket, addr = sock.accept()
+        print(f"[*] Accepted connection from {addr}")
+        thread.start_new_thread(handle_client, (client_socket,))
+
+# Handle TCP/IP client requests
+def handle_client(client_socket):
+    try:
+        while True:
+            request = client_socket.recv(1024).decode('utf-8')
+            if not request:
+                break  # Exit the loop if no data is received
+
+            print('Received:', request)
+            
+            if request == "|OPENEN%":
+                # Trigger relay or perform action
+                print("Relay triggered")
+                client_socket.send("Relay triggered".encode('utf-8'))
+            elif request == "Hi":
+                client_socket.send("connected".encode('utf-8'))
+            elif request == "READIP":
+                current_ip = read_ip()
+                client_socket.send(current_ip.encode('utf-8'))
+            elif request.startswith("WRITEIP:"):
+                new_ip = request.split(":")[1]
+                write_ip(new_ip)
+                client_socket.send(f"IP changed to {new_ip}. Restarting...".encode('utf-8'))
+                restart_esp32()
+            else:
+                client_socket.send("Invalid Command".encode('utf-8'))
+    except Exception as e:
+        print('Error:', e)
+    finally:
+        client_socket.close()
+        print("Connection closed")
+
+# HTTP server request handler
+def http_handler(conn, addr):
+    try:
+        request = conn.recv(1024)
+        request = request.decode('utf-8')
+        print(f"Content = {request}")
+
+        if 'GET / ' in request:
+            conn.send('HTTP/1.1 200 OK\nContent-Type: text/html\nConnection: close\n\n')
+            conn.send(html.format(current_ip=read_ip()))
+        elif 'POST /update_ip ' in request:
+            # Extract the new IP address from the POST request
+            post_data = request.split('\r\n\r\n')[1]
+            new_ip = post_data.split('=')[1]
+
+            # Update the IP address
+            write_ip(new_ip)
+
+            # Send response and restart ESP32
+            conn.send('HTTP/1.1 200 OK\nContent-Type: text/html\nConnection: close\n\n')
+            conn.send(f"<html><body><h1>IP changed to {new_ip}. Restarting...</h1></body></html>")
+            restart_esp32()
+    except Exception as e:
+        print('Error:', e)
+    finally:
+        conn.close()
+
+# Setup HTTP server
+def setup_http_server(tcp_ip):
+    http_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    http_sock.bind((tcp_ip, 80))
+    http_sock.listen(1)
+    print(f"HTTP Server listening on {tcp_ip}:80")
+
+    while True:
+        conn, addr = http_sock.accept()
+        print(f'Got a connection from {addr}')
+        thread.start_new_thread(http_handler, (conn, addr))
+
+# Main execution
+tcp_ip = connect_wifi()
+write_ip(tcp_ip)  # Store the current IP address
+thread.start_new_thread(setup_server, (tcp_ip,))
+thread.start_new_thread(setup_http_server, (tcp_ip,))
+
+while True:
+    pass  # Keep the main thread running
