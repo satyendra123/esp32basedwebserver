@@ -1,4 +1,4 @@
-#isme hum web page me form banate hai aur us fom ke data ko apne esp32 ke serial monitor me receive krte hai
+#isme hum web page me form banate hai aur us fom ke data ko apne esp32 ke serial monitor me receive krte hai. isme hum single single data lete hai one by one. means har ek input field ke liye ek submit button hai
 import network
 from machine import Pin, UART
 import uos
@@ -76,7 +76,150 @@ while True:
                 key = key_value[0]
                 value = key_value[1]
                 print(f"Received {key} = {value}")
+
+
+#step-2 isme humne ek form banaya hai jisse ki hum sare input field ko ek sath send kar sakte hai aur ye work kar rha hai
+import network
+from machine import Pin, UART
+import usocket as socket
+
+# Replace with your WiFi credentials
+WIFI_SSID = "Airtel_tejv_3002"
+WIFI_PASSWORD = "air73137"
+
+# HTML web page to handle 3 input fields (input1, input2, input3)
+html = """<!DOCTYPE HTML>
+<html>
+<head>
+  <title>ESP Input Form</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      margin: 20px;
+      padding: 20px;
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+    }
+    form {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    input[type="submit"] {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      float: right;
+    }
+    input[type="submit"]:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
+<body>
+  <h1>WEB BASED CONTROL SERVO MOTOR</h1>
+  <form id="inputForm">
+    <label for="input1">Servo1:</label>
+    <input type="text" id="input1" name="input1"><br><br>
+    <label for="input2">Servo2:</label>
+    <input type="text" id="input2" name="input2"><br><br>
+    <label for="input3">Servo3:</label>
+    <input type="text" id="input3" name="input3"><br><br>
+    <input type="button" value="Submit All" onclick="submitForm()">
+  </form>
+
+  <script>
+    function submitForm() {
+      var input1 = document.getElementById('input1').value;
+      var input2 = document.getElementById('input2').value;
+      var input3 = document.getElementById('input3').value;
+      
+      var xhttp = new XMLHttpRequest();
+      var url = '/get?' + 'input1=' + encodeURIComponent(input1) + '&input2=' + encodeURIComponent(input2) + '&input3=' + encodeURIComponent(input3);
+      
+      console.log('Submitting to:', url);
+      
+      xhttp.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+          console.log('Response:', this.responseText);
+          window.location.reload();
+        }
+      };
+      
+      xhttp.open("GET", url, true);
+      xhttp.send();
+    }
+  </script>
+</body>
+</html>"""
+
+# Initialize UART (optional if you need to use UART)
+uart = UART(2, baudrate=9600, tx=Pin(17), rx=Pin(16))
+
+# Initialize WiFi connection
+station = network.WLAN(network.STA_IF)
+station.active(True)
+station.connect(WIFI_SSID, WIFI_PASSWORD)
+
+# Wait until connected to WiFi
+while not station.isconnected():
+    pass
+
+# Print the IP address once connected
+print("WiFi connected:", station.ifconfig()[0])
+
+# Function to parse GET request parameters
+def parse_get_params(request):
+    params = {}
+    req_str = request.decode('utf-8')
+    if req_str.find('GET /get') == 0:
+        param_start = req_str.find('?') + 1
+        param_end = req_str.find(' HTTP')
+        params_list = req_str[param_start:param_end].split('&')
+        for param in params_list:
+            key_value = param.split('=')
+            params[key_value[0]] = key_value[1]
+    return params
+
+# Initialize web server
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind(('0.0.0.0', 80))
+server.listen(5)
+
+print("Listening on", (station.ifconfig()[0], 80))
+
+while True:
+    client_conn, client_addr = server.accept()
+    req = client_conn.recv(1024)
+    
+    if req:
+        print("Request received:")
+        print(req.decode('utf-8'))
+        
+        # Respond with the HTML form
+        client_conn.sendall(html)
+        
+        # Parse incoming request for form data
+        params = parse_get_params(req)
+        for key, value in params.items():
+            print(f"Received {key} = {value}")
     
     client_conn.close()
-
 
