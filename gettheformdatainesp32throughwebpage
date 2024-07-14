@@ -1,0 +1,82 @@
+#isme hum web page me form banate hai aur us fom ke data ko apne esp32 ke serial monitor me receive krte hai
+import network
+from machine import Pin, UART
+import uos
+import ujson as json
+import utime as time
+
+# Replace with your WiFi credentials
+WIFI_SSID = "Airtel_tejv_3002"
+WIFI_PASSWORD = "air73137"
+
+# HTML web page to handle 3 input fields (input1, input2, input3)
+html = """<!DOCTYPE HTML>
+<html>
+<head><title>ESP Input Form</title></head>
+
+<body>
+  <h1>WEB BASED CONTROL SERVO MOTOR</h1>
+  <form action="/get">
+    Servo1: <input type="text" name="input1">
+    <input type="submit" value="Submit">
+  </form><br>
+  <form action="/get">
+    Servo2: <input type="text" name="input2">
+    <input type="submit" value="Submit">
+  </form><br>
+  <form action="/get">
+    Servo3: <input type="text" name="input3">
+    <input type="submit" value="Submit">
+  </form>
+</body>
+</html>"""
+
+# Initialize UART (optional if you need to use UART)
+uart = UART(2, baudrate=9600, tx=Pin(17), rx=Pin(16))
+
+# Initialize WiFi connection
+station = network.WLAN(network.STA_IF)
+station.active(True)
+station.connect(WIFI_SSID, WIFI_PASSWORD)
+
+while not station.isconnected():
+    pass
+
+print("WiFi connected:", station.ifconfig())
+
+# Initialize web server
+import usocket as socket
+import uselect as select
+
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind(('', 80))
+server.listen(5)
+
+print("Listening on", (station.ifconfig()[0], 80))
+
+while True:
+    client_conn, client_addr = server.accept()
+    req = client_conn.recv(1024)
+    
+    if req:
+        print("Request received:")
+        print(req.decode('utf-8'))
+        
+        # Respond with the HTML form
+        client_conn.sendall(html)
+        
+        # Parse incoming request for form data
+        req_str = req.decode('utf-8')
+        if req_str.find('GET /get') == 0:
+            param_start = req_str.find('?') + 1
+            param_end = req_str.find(' HTTP')
+            params = req_str[param_start:param_end].split('&')
+            for param in params:
+                key_value = param.split('=')
+                key = key_value[0]
+                value = key_value[1]
+                print(f"Received {key} = {value}")
+    
+    client_conn.close()
+
+
