@@ -982,3 +982,127 @@ while True:
   conn.send('Connection: close\n\n')
   conn.sendall(response)
   conn.close()
+
+#EX-6 control the rgb led from the webpage
+try:
+    import usocket as socket
+except:
+    import socket
+  
+from machine import Pin, PWM
+import network
+import esp
+esp.osdebug(None)
+import gc
+gc.collect()
+
+# Replace with your network credentials
+ssid = "Airtel_tejv_3002"
+password = "air73137"
+
+# GPIO pins for RGB LEDs
+redPin = 13     # GPIO13
+greenPin = 12   # GPIO12
+bluePin = 14    # GPIO14
+
+# Setting PWM frequency and bit resolution
+freq = 5000
+resolution = 8
+
+# Connect to Wi-Fi network
+station = network.WLAN(network.STA_IF)
+station.active(True)
+station.connect(ssid, password)
+while not station.isconnected():
+    pass
+print("Connection successful")
+print(station.ifconfig())
+
+# Configure PWM channels for RGB LEDs
+red_pwm = PWM(Pin(redPin), freq=freq, duty=0)
+green_pwm = PWM(Pin(greenPin), freq=freq, duty=0)
+blue_pwm = PWM(Pin(bluePin), freq=freq, duty=0)
+
+# Function to generate HTML for the web page
+def web_page():
+    html = """<!DOCTYPE html><html><head><title>ESP RGB LED Control</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
+    <style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center; }
+    h1 { color: #0F3376; padding: 2vh; }
+    p { font-size: 1.5rem; }
+    .button { display: inline-block; background-color: #e7bd3b; border: none; border-radius: 4px; 
+    color: white; padding: 16px 40px; text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer; }
+    .colorpicker { width: 100px; height: 50px; font-size: 14px; }</style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jscolor/2.0.4/jscolor.min.js"></script>
+    </head><body><h1>ESP RGB LED Control</h1>
+    <p>Red: <input class="colorpicker" id="red" onchange="updateColor()" value="FF0000"></p>
+    <p>Green: <input class="colorpicker" id="green" onchange="updateColor()" value="00FF00"></p>
+    <p>Blue: <input class="colorpicker" id="blue" onchange="updateColor()" value="0000FF"></p>
+    <p><a href="/?led=on"><button class="button">ON</button></a> 
+    <a href="/?led=off"><button class="button">OFF</button></a></p>
+    <script>
+    function updateColor() {
+        var red = document.getElementById("red").value;
+        var green = document.getElementById("green").value;
+        var blue = document.getElementById("blue").value;
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                console.log("Color updated:", red, green, blue);
+            }
+        };
+        xhttp.open("GET", "/?r=" + red + "g=" + green + "b=" + blue, true);
+        xhttp.send();
+    }
+    </script></body></html>"""
+    return html
+
+# Create TCP/IP server
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.bind(('', 80))
+s.listen(5)
+
+# Main loop to handle client connections and requests
+while True:
+    conn, addr = s.accept()
+    print('Got a connection from %s' % str(addr))
+    
+    request = conn.recv(1024)
+    request = str(request)
+    print('Content = %s' % request)
+    
+    # Check if LED control command received
+    led_on = request.find('/?led=on')
+    led_off = request.find('/?led=off')
+    if led_on == 6:
+        print('LED ON')
+        # Code to turn LED ON
+    if led_off == 6:
+        print('LED OFF')
+        # Code to turn LED OFF
+
+    # Parse RGB values from request
+    if "/?r=" in request and "g=" in request and "b=" in request:
+        r_index = request.find("r=") + 2
+        g_index = request.find("g=") + 2
+        b_index = request.find("b=") + 2
+        r_value = int(request[r_index:r_index+2], 16)
+        g_value = int(request[g_index:g_index+2], 16)
+        b_value = int(request[b_index:b_index+2], 16)
+        
+        # Update PWM duty cycles for RGB LEDs
+        red_pwm.duty(r_value)
+        green_pwm.duty(g_value)
+        blue_pwm.duty(b_value)
+    
+    # Generate HTML response and send to client
+    response = web_page()
+    conn.send('HTTP/1.1 200 OK\n')
+    conn.send('Content-Type: text/html\n')
+    conn.send('Connection: close\n\n')
+    conn.sendall(response)
+    
+    # Close connection
+    conn.close()
+
