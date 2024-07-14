@@ -1227,3 +1227,93 @@ while True:
     send_response(conn, content_type='text/html', content=response)
     conn.close()
 
+#EX control the brightness of the led using webpage using the slider
+import network
+import socket
+from machine import Pin, PWM
+import time
+
+# Connect to Wi-Fi
+ssid = 'Airtel_tejv_3002'
+password = 'air73137'
+
+station = network.WLAN(network.STA_IF)
+station.active(True)
+station.connect(ssid, password)
+
+while station.isconnected() == False:
+    pass
+
+print('Connection successful')
+print(station.ifconfig())
+
+# Set up PWM for LED control
+led = PWM(Pin(2), freq=5000, duty=0)
+
+# HTML Content
+html = """<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<style>
+body { text-align: center; font-family: "Trebuchet MS", Arial; margin-left:auto; margin-right:auto; }
+.slider { width: 300px; }
+</style>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+</head>
+<body>
+<h1>ESP32 LED Brightness Control</h1>
+<p>Brightness: <span id="ledBrightness"></span></p>
+<input type="range" min="0" max="1023" class="slider" id="brightnessSlider" onchange="updateBrightness(this.value)" value="0"/>
+<script>
+var slider = document.getElementById("brightnessSlider");
+var brightnessDisplay = document.getElementById("ledBrightness");
+brightnessDisplay.innerHTML = slider.value;
+slider.oninput = function() {
+  brightnessDisplay.innerHTML = this.value;
+}
+$.ajaxSetup({timeout:1000});
+function updateBrightness(brightness) {
+  $.get("/setBrightness?value=" + brightness);
+}
+</script>
+</body>
+</html>
+"""
+
+# Web server
+addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
+s = socket.socket()
+s.bind(addr)
+s.listen(5)
+
+print('listening on', addr)
+
+def web_page():
+    return html
+
+def serve(client):
+    request = client.recv(1024)
+    request = str(request)
+    print('Content = %s' % request)
+    
+    if 'GET /setBrightness?value=' in request:
+        pos = request.find('/setBrightness?value=')
+        value_str = request[pos + len('/setBrightness?value='):].split(' ')[0]
+        brightness = int(value_str)
+        print('Brightness = %d' % brightness)
+        led.duty(brightness)
+    
+    response = web_page()
+    client.send('HTTP/1.1 200 OK\r\n')
+    client.send('Content-Type: text/html\r\n')
+    client.send('Connection: close\r\n\r\n')
+    client.sendall(response)
+    client.close()
+
+while True:
+    cl, addr = s.accept()
+    print('client connected from', addr)
+    serve(cl)
+
