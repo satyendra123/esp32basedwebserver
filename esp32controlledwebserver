@@ -1106,3 +1106,124 @@ while True:
     # Close connection
     conn.close()
 
+#rgb led color picker to control the rgb led
+import socket
+from machine import Pin
+import network
+import esp
+esp.osdebug(None)
+import gc
+gc.collect()
+
+# Initialize network connection
+ssid = "Airtel_tejv_3002"
+password = "air73137"
+station = network.WLAN(network.STA_IF)
+station.active(True)
+station.connect(ssid, password)
+while not station.isconnected():
+    pass
+
+print("Wi-Fi connected:", station.ifconfig())
+
+# Initialize GPIO for LED control (assuming RGB LED setup)
+led_r = Pin(19, Pin.OUT)
+led_g = Pin(18, Pin.OUT)
+led_b = Pin(5, Pin.OUT)
+
+def web_page():
+    # HTML content for the color picker webpage
+    html = """<!DOCTYPE html>
+    <html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="icon" href="data:,">
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jscolor/2.0.4/jscolor.min.js"></script>
+    </head>
+    <body>
+        <div class="container">
+            <div class="row">
+                <h1>ESP Color Picker</h1>
+            </div>
+            <div>
+                <input class="jscolor {onFineChange:'update(this)'}" id="rgb">
+                <button class="btn btn-primary" onclick="sendColor(event)">Send Color</button>
+            </div>
+        </div>
+        <script>
+            function update(picker) {
+                document.getElementById('rgb').value = Math.round(picker.rgb[0]) + ',' + Math.round(picker.rgb[1]) + ',' + Math.round(picker.rgb[2]);
+            }
+            function sendColor(event) {
+                event.preventDefault(); // Prevent default form submission
+                var rgbValue = document.getElementById('rgb').value;
+                var url = '/set_color?rgb=' + rgbValue;
+                fetch(url)
+                    .then(response => {
+                        console.log('Color sent successfully');
+                        location.reload(); // Reload the page after sending color
+                    })
+                    .catch(error => {
+                        console.error('Error sending color:', error);
+                    });
+            }
+        </script>
+    </body>
+    </html>
+    """
+    return html
+
+# Create a TCP/IP socket
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.bind(('', 80))
+s.listen(5)
+
+def parse_led_control(request):
+    if '/set_color' in request:
+        rgb_start = request.find('/set_color?rgb=')
+        if rgb_start != -1:
+            rgb_end = request.find(' ', rgb_start)
+            if rgb_end != -1:
+                rgb_values = request[rgb_start + len('/set_color?rgb='):rgb_end]
+                print(f'Color received from web: {rgb_values}')  # Print the color value received from the web
+                rgb_values = rgb_values.split(',')
+                if len(rgb_values) == 3:
+                    try:
+                        r = int(rgb_values[0], 16)  # Convert hexadecimal to integer
+                        g = int(rgb_values[1], 16)
+                        b = int(rgb_values[2], 16)
+                        set_led_color(r, g, b)
+                        print(f'Set LED color: R={r}, G={g}, B={b}')
+                    except ValueError as e:
+                        print('Error parsing RGB values:', e)
+
+def set_led_color(r, g, b):
+    # Assuming common anode RGB LED, where 0 is fully on and 1 is fully off
+    led_r.value(1 - (r / 255))
+    led_g.value(1 - (g / 255))
+    led_b.value(1 - (b / 255))
+
+def send_response(conn, content_type='text/html', content=''):
+    conn.send('HTTP/1.1 200 OK\n')
+    conn.send(f'Content-Type: {content_type}\n')
+    conn.send('Connection: close\n')
+    if content:
+        conn.send(f'Content-Length: {len(content)}\n')
+    conn.send('\n')
+    if content:
+        conn.send(content)
+
+while True:
+    conn, addr = s.accept()
+    print('Got a connection from %s' % str(addr))
+    request = conn.recv(1024)
+    request = str(request)
+    print('Content = %s' % request)
+    
+    parse_led_control(request)  # Check for LED control commands
+    
+    response = web_page()
+    send_response(conn, content_type='text/html', content=response)
+    conn.close()
+
