@@ -1,0 +1,113 @@
+#EX-1 in this example i have made a simple code which controls the relay from the postman. it means my postman is work as a client like my webpage and my esp32 will work as a server. basically esp32 me do chize hoti hai ek to
+jisme hum inputs le sakte hai webpage se user se aur wo kya karta hai ki hume ek ip milta hai wo ip hum apne webpage me open karte hai aur wha se data hum apne esp32 me le lete hai. lekin man lo ki hum apna webpage react js me banana chahte hai
+au chahte hai ki waha se jo data hai mere esp32 me aaye to mujhe uske liye esp32 ko as a server kaam karwana padhega.
+
+EX-1 using the webserver library
+#include <WiFi.h>
+#include <WebServer.h>
+
+// Replace these with your network credentials
+const char* ssid = "your_SSID";
+const char* password = "your_PASSWORD";
+
+// Create a WebServer object on port 80
+WebServer server(80);
+
+// Define the relay pin
+const int relayPin = 5; // Change this to the pin connected to your relay
+
+void handleRoot() {
+  server.send(200, "text/plain", "Welcome to ESP32 Relay Control Server");
+}
+
+void handleRelayControl() {
+  if (server.method() == HTTP_POST) {
+    String body = server.arg("plain");
+    DynamicJsonDocument doc(1024);
+    
+    DeserializationError error = deserializeJson(doc, body);
+    if (error) {
+      server.send(400, "text/plain", "Invalid JSON");
+      return;
+    }
+    
+    String relayState = doc["relay"];
+    if (relayState == "on") {
+      digitalWrite(relayPin, HIGH);
+      server.send(200, "text/plain", "Relay is ON");
+    } else if (relayState == "off") {
+      digitalWrite(relayPin, LOW);
+      server.send(200, "text/plain", "Relay is OFF");
+    } else {
+      server.send(400, "text/plain", "Invalid command");
+    }
+  } else {
+    server.send(405, "text/plain", "Method Not Allowed");
+  }
+}
+
+void setup() {
+  // Start Serial Monitor
+  Serial.begin(115200);
+  
+  // Initialize relay pin as output
+  pinMode(relayPin, OUTPUT);
+  digitalWrite(relayPin, LOW); // Make sure relay is OFF initially
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("Connected to Wi-Fi");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+
+  // Define routes
+  server.on("/", HTTP_GET, handleRoot);
+  server.on("/relay", HTTP_POST, handleRelayControl);
+
+  // Start server
+  server.begin();
+}
+
+void loop() {
+  server.handleClient();
+}
+
+#EX-2 the same thing i have made using the microdot library in esp32 in micropython and which works also
+from lib.microdot import Microdot, send_file
+from common.connect_wifi import do_connect
+from machine import Pin
+import ujson
+relay = Pin(2, Pin.OUT)
+do_connect()
+app = Microdot()
+
+@app.post('/relay')
+def handle_relay(request):
+    try:
+        # Decode and print the raw request body for debugging
+        raw_body = request.body.decode('utf-8')
+        print("Raw request body:", raw_body)
+        data = ujson.loads(raw_body)     
+        if not data:
+            return "No JSON data", 400
+        
+        command = data.get('command', '')
+        
+        if command == 'on':
+            relay.value(1)
+            return "Relay is now ON"
+        elif command == 'off':
+            relay.value(0)
+            return "Relay is now OFF"
+        else:
+            return "Invalid command", 400
+    except ValueError:
+        return "Invalid JSON", 400
+    except Exception as e:
+        return f"Error: {str(e)}", 500
+
+app.run(host='0.0.0.0', port=5000, debug=True, ssl=None)
