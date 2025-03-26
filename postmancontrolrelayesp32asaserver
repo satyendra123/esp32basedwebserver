@@ -5,17 +5,13 @@ au chahte hai ki waha se jo data hai mere esp32 me aaye to mujhe uske liye esp32
 EX-1 using the webserver library
 #include <WiFi.h>
 #include <WebServer.h>
+#include <ArduinoJson.h>
 
-// Replace these with your network credentials
-const char* ssid = "your_SSID";
-const char* password = "your_PASSWORD";
-
-// Create a WebServer object on port 80
+const char* ssid = "Redmi10";
+const char* password = "1234abcd";
 WebServer server(80);
 
-// Define the relay pin
-const int relayPin = 5; // Change this to the pin connected to your relay
-
+const int relayPin = 2;
 void handleRoot() {
   server.send(200, "text/plain", "Welcome to ESP32 Relay Control Server");
 }
@@ -47,14 +43,10 @@ void handleRelayControl() {
 }
 
 void setup() {
-  // Start Serial Monitor
   Serial.begin(115200);
-  
-  // Initialize relay pin as output
   pinMode(relayPin, OUTPUT);
-  digitalWrite(relayPin, LOW); // Make sure relay is OFF initially
+  digitalWrite(relayPin, LOW);
 
-  // Connect to Wi-Fi
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -64,11 +56,8 @@ void setup() {
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
 
-  // Define routes
   server.on("/", HTTP_GET, handleRoot);
   server.on("/relay", HTTP_POST, handleRelayControl);
-
-  // Start server
   server.begin();
 }
 
